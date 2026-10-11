@@ -1,9 +1,6 @@
 import socket
 import argparse
-
-
-
-
+from concurrent.futures import ThreadPoolExecutor
 
 def scan_port(host: str, port: int, timeout: float = 1.0) -> bool:
     """Retourne True si le port TCP est ouvert."""
@@ -12,15 +9,20 @@ def scan_port(host: str, port: int, timeout: float = 1.0) -> bool:
         return s.connect_ex((host, port)) == 0
 
 
-def scan(host: str, ports: range, timeout: float = 1.0) -> list[int]:
+def scan(host: str, ports: range, timeout: float = 1.0, threads : int = 100) -> list[int]:
     """Scanne une plage de ports et retourne la liste des ports ouverts."""
     open_ports = []
+    executor = ThreadPoolExecutor(max_workers = threads)
     try : 
+        results = executor.map(lambda p : (p, scan_port(host, p, timeout)), ports )
         for port in ports:
+            print(f"scanning port {port}")
             if scan_port(host, port, timeout):
                 open_ports.append(port)
     except KeyboardInterrupt :
         print("\n[!] Scan interrompu par l'utilisateur.")
+    finally :
+        executor.shutdown(wait=False, cancel_futures=True)
     return open_ports
 
 
@@ -48,6 +50,7 @@ def parse_args() -> argparse.Namespace :
     parser.add_argument("-t", "--target", required = True, help="IP ou nom d'hôte à scanner")
     parser.add_argument("-p", "--ports", type = parse_ports, default = parse_ports("1-1024"), help="Plage de ports, ex 1-1000 (défaut : 1-1024)")
     parser.add_argument("--timeout", type=float, default = 1.0, help = "Délai par port en secondes (défault : 1.0)")
+    parser.add_argument("--threads", type=int, default=100, help="Nombre de threads en parallèle (défaut : 100)")
     return parser.parse_args()
 
 def main():
@@ -60,7 +63,7 @@ def main():
         return
 
     print(f"Scan de {args.target}...")
-    for port in scan(args.target, args.ports, args.timeout):
+    for port in scan(args.target, args.ports, args.timeout, args.threads):
         print(f"[+] Port {port} ouvert")
 
 if __name__ == "__main__":
