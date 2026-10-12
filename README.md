@@ -1,4 +1,4 @@
-# PortHawk 🦅
+# PortHawk 
 
 Un scanner de ports et de services écrit en Python
 
